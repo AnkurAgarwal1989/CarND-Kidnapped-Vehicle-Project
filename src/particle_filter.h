@@ -10,6 +10,7 @@
 #define PARTICLE_FILTER_H_
 
 #include "helper_functions.h"
+#include<iostream>
 
 struct Particle {
 
@@ -18,16 +19,18 @@ struct Particle {
 	double y;
 	double theta;
 	double weight;
+  Particle() {};
+  Particle(int id_, double x_, double y_, double theta_, double weight_):
+    id(id_), x(x_), y(y_), theta(theta_), weight(weight_){ 
+  }
+  friend std::ostream& operator<< (std::ostream& o, const Particle& P);
 };
-
 
 
 class ParticleFilter {
 	
 	// Number of particles to draw
 	int num_particles; 
-	
-	
 	
 	// Flag, if filter is initialized
 	bool is_initialized;
@@ -108,7 +111,6 @@ public:
 		return is_initialized;
 	}
 };
-
 
 
 #endif /* PARTICLE_FILTER_H_ */

@@ -16,9 +16,11 @@
 using namespace std;
 
 
-
+int runTests();
 int main() {
 	
+  runTests();
+
 	// parameters related to grading.
 	int time_steps_before_lock_required = 100; // number of time steps before accuracy is checked by grader.
 	double max_runtime = 45; // Max allowable runtime to pass [sec]

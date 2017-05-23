@@ -12,6 +12,12 @@
 
 #include "particle_filter.h"
 
+ // Friend function for easy printing of particle
+std::ostream& operator<< (std::ostream& os, const Particle& P) {
+  os << "Particle #" << P.id << " x: " << P.x << " y: " << P.y << " theta: " << P.theta << " weight: " << P.weight << std::endl;
+  return os;
+}
+
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
