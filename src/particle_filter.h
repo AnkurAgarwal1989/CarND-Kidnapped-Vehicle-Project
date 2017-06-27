@@ -10,7 +10,6 @@
 #define PARTICLE_FILTER_H_
 
 #include "helper_functions.h"
-#include<iostream>
 
 struct Particle {
 
@@ -19,18 +18,11 @@ struct Particle {
 	double y;
 	double theta;
 	double weight;
-
-  //Basic constructor...no arguments
-  Particle() {};
-  
-  //Constructor with args
-  Particle(int id_, double x_, double y_, double theta_, double weight_):
-    id(id_), x(x_), y(y_), theta(theta_), weight(weight_){ 
-  }
-
-  //Friend function to print the particle
-  friend std::ostream& operator<< (std::ostream& o, const Particle& P);
+	std::vector<int> associations;
+	std::vector<double> sense_x;
+	std::vector<double> sense_y;
 };
+
 
 
 class ParticleFilter {
@@ -38,14 +30,13 @@ class ParticleFilter {
 	// Number of particles to draw
 	int num_particles; 
 	
+	
+	
 	// Flag, if filter is initialized
 	bool is_initialized;
 	
 	// Vector of weights of all particles
 	std::vector<double> weights;
-
-  //random generator
-  std::default_random_engine gen;
 	
 public:
 	
@@ -106,13 +97,17 @@ public:
 	 *   the new set of particles.
 	 */
 	void resample();
-	
+
 	/*
-	 * write Writes particle positions to a file.
-	 * @param filename File to write particle positions to.
+	 * Set a particles list of associations, along with the associations calculated world x,y coordinates
+	 * This can be a very useful debugging tool to make sure transformations are correct and assocations correctly connected
 	 */
-	void write(std::string filename);
+	Particle SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y);
 	
+	std::string getAssociations(Particle best);
+	std::string getSenseX(Particle best);
+	std::string getSenseY(Particle best);
+
 	/**
 	 * initialized Returns whether particle filter is initialized yet or not.
 	 */
@@ -120,6 +115,7 @@ public:
 		return is_initialized;
 	}
 };
+
 
 
 #endif /* PARTICLE_FILTER_H_ */
