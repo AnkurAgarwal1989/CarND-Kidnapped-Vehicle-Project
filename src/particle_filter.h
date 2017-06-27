@@ -19,10 +19,16 @@ struct Particle {
 	double y;
 	double theta;
 	double weight;
+
+  //Basic constructor...no arguments
   Particle() {};
+  
+  //Constructor with args
   Particle(int id_, double x_, double y_, double theta_, double weight_):
     id(id_), x(x_), y(y_), theta(theta_), weight(weight_){ 
   }
+
+  //Friend function to print the particle
   friend std::ostream& operator<< (std::ostream& o, const Particle& P);
 };
 
@@ -37,6 +43,9 @@ class ParticleFilter {
 	
 	// Vector of weights of all particles
 	std::vector<double> weights;
+
+  //random generator
+  std::default_random_engine gen;
 	
 public:
 	

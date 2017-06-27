@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
+#include <random>
 
 #include "particle_filter.h"
 
@@ -23,7 +24,19 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
+  
+  num_particles = 10;
+  std::normal_distribution<double> dist_x(x, std[0]);
+  std::normal_distribution<double> dist_y(y, std[1]);
+  std::normal_distribution<double> dist_theta(theta, std[2]);
 
+  for (int i = 0; i < num_particles; ++i) {
+    //Add particle(+noise) to vector of particles
+    particles.push_back(Particle(i, dist_x(gen), dist_y(gen), dist_theta(gen), 1.0 ));
+  }
+
+  std::for_each(particles.begin(), particles.end(), [](auto& p) {std::cout << p; });
+  
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -31,6 +44,30 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+  
+  std::normal_distribution<double> dist_x(0, std_pos[0]);
+  std::normal_distribution<double> dist_y(0, std_pos[1]);
+  std::normal_distribution<double> dist_theta(0, std_pos[2]);
+
+  for (auto& p : particles) {
+    //Motion Prediction
+    //yaw rate ==0
+    if (abs(yaw_rate) < 0.001) {
+      p.x += velocity*cos(p.theta)*delta_t;
+      p.y += velocity*sin(p.theta)*delta_t;
+    }
+    //yaw_rate > 0
+    else {
+      p.x += (velocity / yaw_rate) * (sin(p.theta + yaw_rate*delta_t) - sin(p.theta));
+      p.y += (velocity / yaw_rate) * (-cos(p.theta + yaw_rate*delta_t) + cos(p.theta));
+    }
+    p.theta += yaw_rate*delta_t;
+
+    //Add gaussian noise
+    p.x += dist_x(gen);
+    p.y += dist_y(gen);
+    p.theta += dist_theta(gen);
+  }
 
 }
 
