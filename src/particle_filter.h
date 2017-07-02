@@ -22,8 +22,16 @@ struct Particle {
 	std::vector<int> associations;
 	std::vector<double> sense_x;
 	std::vector<double> sense_y;
-  //Friend function to print the particle
-  friend std::ostream& operator<< (std::ostream& o, const Particle& P);
+	//Basic constructor...no arguments
+
+	Particle() {};
+  
+	//Constructor with args
+	Particle(int id_, double x_, double y_, double theta_, double weight_):
+	id(id_), x(x_), y(y_), theta(theta_), weight(weight_){ 
+	}
+	//Friend function to print the particle
+	friend std::ostream& operator<< (std::ostream& o, const Particle& P);
 };
 
 
@@ -37,8 +45,8 @@ class ParticleFilter {
 	
 	// Vector of weights of all particles
 	std::vector<double> weights;
-  //random generator
-  std::default_random_engine gen;
+	//random generator
+	std::default_random_engine gen;
 	
 public:
 	
@@ -80,7 +88,7 @@ public:
 	 * @param predicted Vector of predicted landmark observations
 	 * @param observations Vector of landmark observations
 	 */
-	void dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations);
+	void dataAssociation(double sensor_range, std::vector<LandmarkObs>& observations, Map& map_landmarks);
 	
 	/**
 	 * updateWeights Updates the weights for each particle based on the likelihood of the 
@@ -104,7 +112,7 @@ public:
 	 * Set a particles list of associations, along with the associations calculated world x,y coordinates
 	 * This can be a very useful debugging tool to make sure transformations are correct and assocations correctly connected
 	 */
-	Particle SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y);
+	Particle SetAssociations(Particle& particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y);
 	
 	std::string getAssociations(Particle best);
 	std::string getSenseX(Particle best);

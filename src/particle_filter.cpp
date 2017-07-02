@@ -17,6 +17,7 @@
 
 #include "particle_filter.h"
 
+using namespace std;
  // Friend function for easy printing of particle
 std::ostream& operator<< (std::ostream& os, const Particle& P) {
   os << "Particle #" << P.id << " x: " << P.x << " y: " << P.y << " theta: " << P.theta << " weight: " << P.weight << std::endl;
@@ -40,7 +41,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     particles.push_back(Particle(i, dist_x(gen), dist_y(gen), dist_theta(gen), 1.0 ));
   }
 
-  std::for_each(particles.begin(), particles.end(), [](auto& p) {std::cout << p; });
+  //DEBUG print of all init particles
+  std::for_each(particles.begin(), particles.end(), [](auto& p) {std::cout << p;} );
   
 }
 
@@ -76,16 +78,58 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
+void ParticleFilter::dataAssociation(double sensor_range, std::vector<LandmarkObs>& observations, Map& map) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
 
+	//For every particle
+	//Transform observation from vehicle to map
+	//Find best match for the given observation
+
+	for (int i = 0; i < num_particles; ++i) {
+		double particle_theta = particles[i].theta;
+		double particle_x = particles[i].x;
+		double particle_y = particles[i].y;
+		particles[i].sense_x.clear();
+		particles[i].sense_y.clear();
+		//Transform observation from vehicle to map
+		for (int obs = 0; obs < observations.size(); ++obs) {
+			double obs_x = observations[obs].x;
+			double obs_y = observations[obs].y;
+			double obs_trans_x = obs_x*cos(particle_theta) + obs_y*sin(particle_theta) + particle_x;
+			double obs_trans_y = obs_x*sin(particle_theta) - obs_y*cos(particle_theta) + particle_y;
+
+			//For every observation, find the best landmark in the map
+			//if the landmark is within sensor_range from current position, only check then
+			
+			double best_distance = std::numeric_limits<double>::max();
+			int best_landmark_id = -1;
+			bool found_landmark = false; 
+			double distance = 0; //Distance of observation from landmark
+			for (int l = 0; l < map.landmark_list.size(); ++l) {
+				if (abs(map.landmark_list[l].x_f - particles[i].x) < sensor_range && abs(map.landmark_list[l].y_f - particles[i].y) < sensor_range) {
+					distance = abs(map.landmark_list[l].x_f - obs_trans_x) + abs(map.landmark_list[l].y_f - obs_trans_y);
+					if (distance < best_distance) {
+						best_distance = distance;
+						best_landmark_id = l;
+						found_landmark = true;
+					}
+				}
+			}
+			if (found_landmark) {
+				particles[i].sense_x.push_back(obs_trans_x);
+				particles[i].sense_y.push_back(obs_trans_y);
+				particles[i].associations.push_back(best_landmark_id);
+			}	
+		}
+	}
+
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
-		std::vector<LandmarkObs> observations, Map map_landmarks) {
+		std::vector<LandmarkObs> observations, Map map) {
 	// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
@@ -98,11 +142,28 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   for the fact that the map's y-axis actually points downwards.)
 	//   http://planning.cs.uiuc.edu/node99.html
 
-	//Transform observation to map -> observed_landmarks
+
+	dataAssociation(sensor_range, observations, map);
+
+	//Common denominator used by all measurements;
+	//We can use a simplified version of the calc because std_xy = 0, we only have std_x and std_y
+	double denom = pow(2 * M_PI, 2.0) * std_landmark[0] * std_landmark[1];
 
 
+	double particle_weight;
 	for (int i = 0; i < num_particles; ++i) {
-		weights[i] = 0.1; //TODO particle filter weights calc goes here
+		particle_weight = 1.0;
+		for (int j = 0; j < particles[i].associations.size(); ++j) {
+			double d_x = particles[i].sense_x[j] - map.landmark_list[particles[i].associations[j]].x_f;
+			double d_y = particles[i].sense_y[j] - map.landmark_list[particles[i].associations[j]].y_f;
+
+
+			//Calculate weight of particle
+			particle_weight *= d_x*d_x*std_landmark[1] * std_landmark[1] + d_y*d_y*std_landmark[0] * std_landmark[0];
+			particle_weight /= denom;
+		}
+		particles[i].weight = particle_weight;
+		weights[i] = particle_weight; // This weight vector is used for resampling
 	}
 		
 }
@@ -124,7 +185,7 @@ void ParticleFilter::resample() {
 	particles = std::move(resampledParticles);
 }
 
-Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
+Particle ParticleFilter::SetAssociations(Particle& particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
 {
 	//particle: the particle to assign each listed association, and association's (x,y) world coordinates mapping to
 	// associations: The landmark id that goes along with each listed association
