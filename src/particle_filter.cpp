@@ -30,7 +30,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
   
-  num_particles = 10;
+  num_particles = 1;
   weights.reserve(num_particles);
   std::normal_distribution<double> dist_x(x, std[0]);
   std::normal_distribution<double> dist_y(y, std[1]);
@@ -39,10 +39,15 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   for (int i = 0; i < num_particles; ++i) {
     //Add particle(+noise) to vector of particles
     particles.push_back(Particle(i, dist_x(gen), dist_y(gen), dist_theta(gen), 1.0 ));
+	weights.push_back(1.0);
   }
 
+  //Set Flag to True
+  is_initialized = true;
+
   //DEBUG print of all init particles
-  std::for_each(particles.begin(), particles.end(), [](auto& p) {std::cout << p;} );
+  cout << "Initializing " << endl;
+  std::for_each(particles.begin(), particles.end(), [](Particle& p) {std::cout << p;} );
   
 }
 
@@ -67,8 +72,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     else {
       p.x += (velocity / yaw_rate) * (sin(p.theta + yaw_rate*delta_t) - sin(p.theta));
       p.y += (velocity / yaw_rate) * (-cos(p.theta + yaw_rate*delta_t) + cos(p.theta));
+	  p.theta += yaw_rate*delta_t;
     }
-    p.theta += yaw_rate*delta_t;
+    
 
     //Add gaussian noise
     p.x += dist_x(gen);
@@ -94,12 +100,13 @@ void ParticleFilter::dataAssociation(double sensor_range, std::vector<LandmarkOb
 		double particle_y = particles[i].y;
 		particles[i].sense_x.clear();
 		particles[i].sense_y.clear();
+		particles[i].associations.clear();
 		//Transform observation from vehicle to map
 		for (int obs = 0; obs < observations.size(); ++obs) {
 			double obs_x = observations[obs].x;
 			double obs_y = observations[obs].y;
-			double obs_trans_x = obs_x*cos(particle_theta) + obs_y*sin(particle_theta) + particle_x;
-			double obs_trans_y = obs_x*sin(particle_theta) - obs_y*cos(particle_theta) + particle_y;
+			double obs_trans_x = obs_x*cos(particle_theta) - obs_y*sin(particle_theta) + particle_x;
+			double obs_trans_y = obs_x*sin(particle_theta) + obs_y*cos(particle_theta) + particle_y;
 
 			//For every observation, find the best landmark in the map
 			//if the landmark is within sensor_range from current position, only check then
@@ -109,8 +116,9 @@ void ParticleFilter::dataAssociation(double sensor_range, std::vector<LandmarkOb
 			bool found_landmark = false; 
 			double distance = 0; //Distance of observation from landmark
 			for (int l = 0; l < map.landmark_list.size(); ++l) {
+				//If landmark is within sensor range from particle
 				if (abs(map.landmark_list[l].x_f - particles[i].x) < sensor_range && abs(map.landmark_list[l].y_f - particles[i].y) < sensor_range) {
-					distance = abs(map.landmark_list[l].x_f - obs_trans_x) + abs(map.landmark_list[l].y_f - obs_trans_y);
+					distance = dist(map.landmark_list[l].x_f,map.landmark_list[l].y_f, obs_trans_x, obs_trans_y);
 					if (distance < best_distance) {
 						best_distance = distance;
 						best_landmark_id = l;
@@ -122,8 +130,14 @@ void ParticleFilter::dataAssociation(double sensor_range, std::vector<LandmarkOb
 				particles[i].sense_x.push_back(obs_trans_x);
 				particles[i].sense_y.push_back(obs_trans_y);
 				particles[i].associations.push_back(best_landmark_id);
-			}	
+			}
 		}
+		
+		cout << "sizes "<<endl;
+		cout << particles[i].sense_x.size() <<endl;
+		cout << particles[i].sense_y.size() <<endl;
+		cout << particles[i].associations.size() <<endl;
+		
 	}
 
 }
@@ -147,25 +161,38 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 	//Common denominator used by all measurements;
 	//We can use a simplified version of the calc because std_xy = 0, we only have std_x and std_y
-	double denom = pow(2 * M_PI, 2.0) * std_landmark[0] * std_landmark[1];
-
+	double denom = 2 * M_PI * std_landmark[0] * std_landmark[1];
 
 	double particle_weight;
 	for (int i = 0; i < num_particles; ++i) {
 		particle_weight = 1.0;
 		for (int j = 0; j < particles[i].associations.size(); ++j) {
+			cout << "Landmarks" <<endl;
+			cout << "x: " << map.landmark_list[particles[i].associations[j]].x_f << endl;
+			cout << "y: " << map.landmark_list[particles[i].associations[j]].x_f << endl;
+
+			cout << "Trans Obs"  <<endl;
+			cout << "x: " << particles[i].sense_x[j] << endl;
+			cout << "y: " << particles[i].sense_y[j] << endl;
+
+
+
+
 			double d_x = particles[i].sense_x[j] - map.landmark_list[particles[i].associations[j]].x_f;
 			double d_y = particles[i].sense_y[j] - map.landmark_list[particles[i].associations[j]].y_f;
 
 
 			//Calculate weight of particle
-			particle_weight *= d_x*d_x*std_landmark[1] * std_landmark[1] + d_y*d_y*std_landmark[0] * std_landmark[0];
+			particle_weight *= exp(-0.5*(d_x*d_x/std_landmark[0]*std_landmark[0] + d_y*d_y/std_landmark[1]*std_landmark[1]));
 			particle_weight /= denom;
 		}
 		particles[i].weight = particle_weight;
 		weights[i] = particle_weight; // This weight vector is used for resampling
 	}
-		
+	
+	cout << "After weight update " << endl;
+	//DEBUG print of all init particles
+  	std::for_each(particles.begin(), particles.end(), [](Particle& p) {std::cout << p;} );
 }
 
 void ParticleFilter::resample() {
@@ -174,15 +201,20 @@ void ParticleFilter::resample() {
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
 	std::vector<Particle> resampledParticles(num_particles);
+	
 	//We need to find a resampled particle for every particle
-	double w_max = 2 * (*std::max_element(weights.begin(), weights.end()));
-	std::discrete_distribution<double> distrib(weights.begin(), weights.end());
+	std::discrete_distribution<int> distrib(weights.begin(), weights.end());
 	for (int i = 0; i < num_particles; ++i) {
 		resampledParticles[i] = particles[distrib(gen)];
+		resampledParticles[i].id = i;
 	}
 	
 	//move the resampled data back to original
 	particles = std::move(resampledParticles);
+
+	cout << "After Resampling " << endl;
+	//DEBUG print of all init particles
+  	std::for_each(particles.begin(), particles.end(), [](Particle& p) {std::cout << p;} );
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
