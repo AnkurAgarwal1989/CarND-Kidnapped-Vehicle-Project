@@ -10,6 +10,7 @@
 #define PARTICLE_FILTER_H_
 
 #include "helper_functions.h"
+#include<iostream>
 
 struct Particle {
 
@@ -21,22 +22,23 @@ struct Particle {
 	std::vector<int> associations;
 	std::vector<double> sense_x;
 	std::vector<double> sense_y;
+  //Friend function to print the particle
+  friend std::ostream& operator<< (std::ostream& o, const Particle& P);
 };
-
 
 
 class ParticleFilter {
 	
 	// Number of particles to draw
-	int num_particles; 
-	
-	
+	int num_particles;	
 	
 	// Flag, if filter is initialized
 	bool is_initialized;
 	
 	// Vector of weights of all particles
 	std::vector<double> weights;
+  //random generator
+  std::default_random_engine gen;
 	
 public:
 	
@@ -86,8 +88,8 @@ public:
 	 * @param sensor_range Range [m] of sensor
 	 * @param std_landmark[] Array of dimension 2 [standard deviation of range [m],
 	 *   standard deviation of bearing [rad]]
-	 * @param observations Vector of landmark observations
-	 * @param map Map class containing map landmarks
+	 * @param observations Vector of landmark observations (in car frame of reference)
+	 * @param map Map class containing map landmarks (in world frame)
 	 */
 	void updateWeights(double sensor_range, double std_landmark[], std::vector<LandmarkObs> observations,
 			Map map_landmarks);

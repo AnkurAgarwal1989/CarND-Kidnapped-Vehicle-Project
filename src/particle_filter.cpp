@@ -17,14 +17,31 @@
 
 #include "particle_filter.h"
 
-using namespace std;
+ // Friend function for easy printing of particle
+std::ostream& operator<< (std::ostream& os, const Particle& P) {
+  os << "Particle #" << P.id << " x: " << P.x << " y: " << P.y << " theta: " << P.theta << " weight: " << P.weight << std::endl;
+  return os;
+}
 
 void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
+  
+  num_particles = 10;
+  weights.reserve(num_particles);
+  std::normal_distribution<double> dist_x(x, std[0]);
+  std::normal_distribution<double> dist_y(y, std[1]);
+  std::normal_distribution<double> dist_theta(theta, std[2]);
 
+  for (int i = 0; i < num_particles; ++i) {
+    //Add particle(+noise) to vector of particles
+    particles.push_back(Particle(i, dist_x(gen), dist_y(gen), dist_theta(gen), 1.0 ));
+  }
+
+  std::for_each(particles.begin(), particles.end(), [](auto& p) {std::cout << p; });
+  
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
@@ -32,6 +49,30 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
+  
+  std::normal_distribution<double> dist_x(0, std_pos[0]);
+  std::normal_distribution<double> dist_y(0, std_pos[1]);
+  std::normal_distribution<double> dist_theta(0, std_pos[2]);
+
+  for (auto& p : particles) {
+    //Motion Prediction
+    //yaw rate ==0
+    if (abs(yaw_rate) < 0.001) {
+      p.x += velocity*cos(p.theta)*delta_t;
+      p.y += velocity*sin(p.theta)*delta_t;
+    }
+    //yaw_rate > 0
+    else {
+      p.x += (velocity / yaw_rate) * (sin(p.theta + yaw_rate*delta_t) - sin(p.theta));
+      p.y += (velocity / yaw_rate) * (-cos(p.theta + yaw_rate*delta_t) + cos(p.theta));
+    }
+    p.theta += yaw_rate*delta_t;
+
+    //Add gaussian noise
+    p.x += dist_x(gen);
+    p.y += dist_y(gen);
+    p.theta += dist_theta(gen);
+  }
 
 }
 
@@ -53,8 +94,17 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   The following is a good resource for the theory:
 	//   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
 	//   and the following is a good resource for the actual equation to implement (look at equation 
-	//   3.33
+	//   3.33. Note that you'll need to switch the minus sign in that equation to a plus to account 
+	//   for the fact that the map's y-axis actually points downwards.)
 	//   http://planning.cs.uiuc.edu/node99.html
+
+	//Transform observation to map -> observed_landmarks
+
+
+	for (int i = 0; i < num_particles; ++i) {
+		weights[i] = 0.1; //TODO particle filter weights calc goes here
+	}
+		
 }
 
 void ParticleFilter::resample() {
@@ -62,6 +112,16 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
+	std::vector<Particle> resampledParticles(num_particles);
+	//We need to find a resampled particle for every particle
+	double w_max = 2 * (*std::max_element(weights.begin(), weights.end()));
+	std::discrete_distribution<double> distrib(weights.begin(), weights.end());
+	for (int i = 0; i < num_particles; ++i) {
+		resampledParticles[i] = particles[distrib(gen)];
+	}
+	
+	//move the resampled data back to original
+	particles = std::move(resampledParticles);
 }
 
 Particle ParticleFilter::SetAssociations(Particle particle, std::vector<int> associations, std::vector<double> sense_x, std::vector<double> sense_y)
