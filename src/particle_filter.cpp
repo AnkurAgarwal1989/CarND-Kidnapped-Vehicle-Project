@@ -30,8 +30,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
   
-  num_particles = 1;
-  weights.reserve(num_particles);
+  num_particles = 15;
+  weights.resize(num_particles,1.0);
   std::normal_distribution<double> dist_x(x, std[0]);
   std::normal_distribution<double> dist_y(y, std[1]);
   std::normal_distribution<double> dist_theta(theta, std[2]);
@@ -39,7 +39,6 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   for (int i = 0; i < num_particles; ++i) {
     //Add particle(+noise) to vector of particles
     particles.push_back(Particle(i, dist_x(gen), dist_y(gen), dist_theta(gen), 1.0 ));
-	weights.push_back(1.0);
   }
 
   //Set Flag to True
@@ -121,7 +120,7 @@ void ParticleFilter::dataAssociation(double sensor_range, std::vector<LandmarkOb
 					distance = dist(map.landmark_list[l].x_f,map.landmark_list[l].y_f, obs_trans_x, obs_trans_y);
 					if (distance < best_distance) {
 						best_distance = distance;
-						best_landmark_id = l;
+						best_landmark_id = map.landmark_list[l].id_i;
 						found_landmark = true;
 					}
 				}
@@ -167,19 +166,20 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	for (int i = 0; i < num_particles; ++i) {
 		particle_weight = 1.0;
 		for (int j = 0; j < particles[i].associations.size(); ++j) {
-			cout << "Landmarks" <<endl;
-			cout << "x: " << map.landmark_list[particles[i].associations[j]].x_f << endl;
-			cout << "y: " << map.landmark_list[particles[i].associations[j]].x_f << endl;
+			//Debug prints
+			//cout << "Landmarks" <<endl;
+			//cout << "x: " << map.landmark_list[particles[i].associations[j]-1].x_f << endl;
+			//cout << "y: " << map.landmark_list[particles[i].associations[j]-1].y_f << endl;
 
-			cout << "Trans Obs"  <<endl;
-			cout << "x: " << particles[i].sense_x[j] << endl;
-			cout << "y: " << particles[i].sense_y[j] << endl;
+			//cout << "Trans Obs"  <<endl;
+			//cout << "x: " << particles[i].sense_x[j] << endl;
+			//cout << "y: " << particles[i].sense_y[j] << endl;
 
 
 
 
-			double d_x = particles[i].sense_x[j] - map.landmark_list[particles[i].associations[j]].x_f;
-			double d_y = particles[i].sense_y[j] - map.landmark_list[particles[i].associations[j]].y_f;
+			double d_x = particles[i].sense_x[j] - map.landmark_list[particles[i].associations[j]-1].x_f;
+			double d_y = particles[i].sense_y[j] - map.landmark_list[particles[i].associations[j]-1].y_f;
 
 
 			//Calculate weight of particle
